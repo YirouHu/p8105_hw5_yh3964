@@ -29,8 +29,8 @@ Suppose you put n people in a room, and want to know the probability that at lea
 - checks whether there are duplicate birthdays in the group; 
 - returns TRUE or FALSE based on the result.
 
+## Define function
 ```{r}
-# Define simulation birthday
 birthday_sim = function(n_room) {
   birthdays = sample(1:365, n_room, replace = TRUE)
   rep_birthday = length(unique(birthdays)) < n_room
@@ -42,6 +42,7 @@ birthday_sim = function(n_room) {
 - For each group size, compute the probability that at least two people in the group will share a birthday by averaging across the 10000 simulation runs. 
 - Make a plot showing the probability as a function of group size, and comment on your results
 
+##simulation
 ```{r}
 group_sizes = 2:50
 n_simulations = 10000
@@ -54,4 +55,32 @@ birthday_prob =
   ) |> 
   select(group_size, prob_duplicate)
 ```
+
+## Visualization
+```{r}
+birthday_plot = 
+  birthday_prob |> 
+  ggplot(aes(x = group_size, y = prob_duplicate)) +
+  geom_line(linewidth = 1.2, color = "blue") +  
+  geom_point(size = 2, color = "orange") +       
+  labs(
+    x = "Group Size (Number of People)",
+    y = "Probability of At Least Two People Sharing a Birthday",
+    title = "Relationship Between Group Size and Duplicate Birthday Probability",
+  ) +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0, 1)) +  
+  theme(plot.title = element_text(hjust = 0.5, size = 10))
+
+print(birthday_plot)
+```
+
+## Comments
+
+The plot vividly illustrates the birthday paradox phenomenon. 
+
+- As the group size grows, the probability of at least two people sharing a birthday rises quickly. For example, when the group size reaches 23, the probability exceeds 50% for most people, who often expect a much larger group size to reach this threshold.
+
+- When the group size approaches 50, the probability nears 100%, meaning it is almost guaranteed that at least two people will share a birthday in such a group.
+
+- This result highlights how statistical probability can diverge from everyday intuition. The rapid rise is driven by the increasing number of pairwise comparisons.
 
