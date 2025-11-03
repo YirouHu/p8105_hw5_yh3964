@@ -205,4 +205,91 @@ print(mu_hat_plot)
 
 - Average $\hat{\mu}$ for Rejected Tests vs. All Tests: The third plot shows that the sample average of $\hat{\mu}$ for tests where the null hypothesis is rejected is consistently higher than the true $\mu$, particularly for smaller effect sizes. This implies that when the null hypothesis is rejected, the estimate of $\mu$ is biased upward. The bias arises from a selection effect: only samples with larger $\hat{\mu}$ values (due to random variation) result in the null being rejected. Thus, the sample average of $\hat{\mu}$ for rejected tests is not approximately equal to the true $\mu$, indicating an overestimation of the true effect in these cases.
 
+# Problem 3
+Describe the raw data. Create a city_state variable (e.g. “Baltimore, MD”) and then summarize within cities to obtain the total number of homicides and the number of unsolved homicides (those for which the disposition is “Closed without arrest” or “Open/No arrest”).
+
+```{r}
+homicide_data = read_csv("homicide-data.csv")
+
+homicides_summary_df =  
+  homicide_data |>
+  janitor::clean_names() |>
+  drop_na() |>
+  mutate(city_state = paste(city, state, sep = ", ")) |>
+  group_by(city_state) |>
+  summarise(
+    total_num_homicides = n(), 
+    total_num_unsolved_homicides = sum(disposition == "Closed without arrest" | disposition == "Open/No arrest")) |> 
+  filter(total_num_unsolved_homicides != 0)
+
+homicides_summary_df
+```
+- The raw data includes `r nrow(homicide_data)` observations and `r length(names(homicide_data))` variables. 
+
+- We have variables: uid, reported_date, victim_last, victim_first, victim_race, victim_age, victim_sex, city, state, lat, lon, and disposition.
+
+- Each row represents a single homicide case occurring in one of 50 cities spanning 28 states.
+
+
+- For the city of Baltimore, MD, use the prop.test function to estimate the proportion of homicides that are unsolved; save the output of prop.test as an R object, apply the broom::tidy to this object and pull the estimated proportion and confidence intervals from the resulting tidy dataframe.
+```{r}
+baltimore_df =
+  homicides_summary_df |>
+  filter(city_state == "Baltimore, MD") 
+
+baltimore_total = pull(baltimore_df, total_num_homicides)
+baltimore_unsolved = pull(baltimore_df, total_num_unsolved_homicides)
+
+
+baltimore_test_prop = prop.test(baltimore_unsolved, baltimore_total)
+
+baltimore_summary = broom::tidy(baltimore_test_prop) |>
+  mutate(
+    estimate_p = estimate,
+    confidence_low = conf.low,
+    confidence_high = conf.high
+  ) |>
+  select(estimate_p, confidence_low, confidence_high)
+
+baltimore_summary |> 
+  knitr::kable()
+```
+
+- Now run prop.test for each of the cities in your dataset, and extract both the proportion of unsolved homicides and the confidence interval for each. Do this within a “tidy” pipeline, making use of purrr::map, purrr::map2, list columns and unnest as necessary to create a tidy dataframe with estimated proportions and CIs for each city.
+```{r}
+all_city_estimates = homicides_summary_df |>
+  group_by(city_state) |>
+  summarize(
+    prop_test = list(prop.test(total_num_unsolved_homicides, total_num_homicides))
+  ) |>
+  mutate(tidy_test = purrr::map(prop_test, broom::tidy)) |>
+  unnest(tidy_test) |>
+  mutate(
+    estimate_p = estimate,
+    confidence_low = conf.low,
+    confidence_high = conf.high
+  ) |>
+  select(city_state, estimate_p, confidence_low, confidence_high)
+
+all_city_estimates |> 
+  knitr::kable()
+```
+
+- Create a plot that shows the estimates and CIs for each city – check out geom_errorbar for a way to add error bars based on the upper and lower limits. Organize cities according to the proportion of unsolved homicides
+```{r}
+ggplot(all_city_estimates, aes(x = reorder(city_state, estimate_p), y = estimate_p)) +
+  geom_point(color = "blue", size = 1.5) +
+  geom_errorbar(aes(ymin = confidence_low, ymax = confidence_high)) +
+  coord_flip() +
+  labs(
+    x = "City", 
+    y = "Proportion of Total Unsolved Homicides",
+    title = "Estimated Unsolved Homicide Proportion by City",
+    subtitle = "95% Confidence Intervals for All Cities"
+    ) +
+  theme(axis.text.y = element_text(size = 6))
+```
+The plot displays the estimated unsolved homicide proportion across U.S. cities, sorted by clearance rate (lowest to highest from bottom to top). 
+
+Confidence intervals show precise estimates (narrow bars) for high-volume cities.
 
